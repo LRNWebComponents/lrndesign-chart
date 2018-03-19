@@ -25,14 +25,14 @@ A LRN element
       }
     </style>
     <iron-ajax
-      auto
+      id="datasource"
       url="{{dataSource}}"
       handle-as="text"
       last-response="{{rawData}}"
       on-response="handleResponse"></iron-ajax>
     <chartist-render
       id="chartist"
-      type="bar" 
+      type="bar"
       scale$="[[scale]]"
       chart-title$="[[chartTitle]]"
       chart-desc$="[[chartDesc]]"
@@ -43,7 +43,6 @@ A LRN element
 
   <script>
     Polymer({
-
       is: 'lrndesign-bar',
       behaviors: [HAXBehaviors.PropertiesBehaviors, SchemaBehaviors.Schema],
       properties: {
@@ -74,15 +73,14 @@ A LRN element
         scale: {
           type: String,
           notify: true,
-          value: 'ct-octave',
         },
         /**
          * Data as an array.
          */
         data: {
-          type: Array,
-          notify: true,
-          value: [],
+          type: Object,
+          value: {},
+          observer: '_dataUpdated',
         },
         /**
          * Options as an array.
@@ -93,81 +91,81 @@ A LRN element
           value: {},
         },
         /**
-         * Fixed width for the chart as a string (i.e. '100px' or '50%'). 
+         * Fixed width for the chart as a string (i.e. '100px' or '50%').
          */
         width: {
           type: String,
           value: undefined,
         },
         /**
-         * Fixed height for the chart as a string (i.e. '100px' or '50%'). 
+         * Fixed height for the chart as a string (i.e. '100px' or '50%').
          */
         height: {
           type: String,
           value: undefined,
         },
         /**
-         *  Padding-top for chart. 
+         *  Padding-top for chart.
          */
         paddingTop: {
           type: Number,
           value: 5,
         },
         /**
-         *  Padding-right for chart. 
+         *  Padding-right for chart.
          */
         paddingRight: {
           type: Number,
           value: 5,
         },
         /**
-         *  Padding-bottom for chart. 
+         *  Padding-bottom for chart.
          */
         paddingBottom: {
           type: Number,
           value: 5,
         },
         /**
-         *  Padding-left for chart. 
+         *  Padding-left for chart.
          */
         paddingLeft: {
           type: Number,
           value: 5,
         },
         /**
-         * Overriding the natural high of the chart allows you to zoom in 
-         * or limit the charts highest displayed value. 
+         * Overriding the natural high of the chart allows you to zoom in
+         * or limit the charts highest displayed value.
          */
         high: {
           type: Number,
           value: undefined,
         },
         /**
-         * Overriding the natural low of the chart allows you to zoom in 
-         * or limit the charts lowest displayed value. 
+         * Overriding the natural low of the chart allows you to zoom in
+         * or limit the charts lowest displayed value.
          */
         low: {
           type: Number,
           value: undefined,
         },
         /**
-         * Unless low/high are explicitly set, bar chart will be 
-         * centered at zero by default. Set referenceValue to null to auto scale. 
+         * Unless low/high are explicitly set, bar chart will be
+         * centered at zero by default. Set referenceValue to null to auto scale.
          */
         referenceValue: {
           type: Number,
           value: 0,
         },
         /**
-         * Specify the distance in pixel of bars in a group. 
+         * Specify the distance in pixel of bars in a group.
          */
         seriesBarDistance: {
           type: Number,
           value: 15,
         },
         /**
-         * If set to true this property will cause the series bars 
-         * to be stacked. Check the "stackMode" option 
+         * If set to true this property will cause the series bars
+         * to be stacked. Check the "stackMode" option
          * for further stacking options.
          */
         stackBars: {
@@ -175,10 +173,10 @@ A LRN element
           value: false,
         },
         /**
-         * If set to "true" this property will form a total 
-         * for each series point. This will also influence 
-         * the y-axis and the overall bounds of the chart. 
-         * If set to "false" this property will force 
+         * If set to "true" this property will form a total
+         * for each series point. This will also influence
+         * the y-axis and the overall bounds of the chart.
+         * If set to "false" this property will force
          * the stacked bars to draw from the zero line.
          * In stacked mode the "seriesBarDistance" property will have no effect.
          */
@@ -187,9 +185,9 @@ A LRN element
           value: true,
         },
         /**
-         * Inverts the axes of the bar chart in order to draw 
-         * a horizontal bar chart. Be aware that you also need 
-         * to invert your axis settings as the Y Axis will now display 
+         * Inverts the axes of the bar chart in order to draw
+         * a horizontal bar chart. Be aware that you also need
+         * to invert your axis settings as the Y Axis will now display
          * the labels and the X Axis the values.
          */
         horizontalBars: {
@@ -197,10 +195,10 @@ A LRN element
           value: false,
         },
         /**
-         * If set to true then each bar will represent a series and 
-         * the data array is expected to be a one dimensional array 
-         * of data values rather than a series array of series. 
-         * This is useful if the bar chart should represent 
+         * If set to true then each bar will represent a series and
+         * the data array is expected to be a one dimensional array
+         * of data values rather than a series array of series.
+         * This is useful if the bar chart should represent
          * a profile rather than some data over time.
          */
         distributeSeries: {
@@ -208,7 +206,7 @@ A LRN element
           value: false,
         },
         /**
-         * Reverse data including labels, the series order as well as 
+         * Reverse data including labels, the series order as well as
          * the whole series data arrays.
          */
         reverseData: {
@@ -321,8 +319,8 @@ A LRN element
           value: false,
         },
         /**
-         * The responsive options. 
-         * (See https://gionkunz.github.io/chartist-js/api-documentation.html.) 
+         * The responsive options.
+         * (See https://gionkunz.github.io/chartist-js/api-documentation.html.)
          */
         responsiveOptions: {
           type: Array,
@@ -334,6 +332,7 @@ A LRN element
         dataSource: {
           type: String,
           notify: true,
+          observer: '_dataSourceChanged',
         },
         /**
          * Raw data pulled in from the csv file.
@@ -345,19 +344,37 @@ A LRN element
         }
       },
       /**
+       * Generate the request when we notice data source change.
+       * This enables us to use the same element with things that
+       * manually generate the data within the app instead of
+       * pulling it dynamically from a file / endpoint.
+       */
+      _dataSourceChanged: function(newValue, oldValue) {
+        if (typeof newValue !== undefined) {
+          this.$.datasource.generateRequest();
+        }
+      },
+      /**
        * Convert from csv text to an array in the table function
        */
       handleResponse: function(e) {
-        let root = this;
-        let raw = root.CSVtoArray(root.rawData);
-        root.data = {
+        let raw = this.CSVtoArray(this.rawData);
+        this.set('data', {});
+        this.set('data', {
           'labels': raw[0],
-          'series': raw.slice(1,raw.length),
-        };
-        root.options = root._getOptions();
-        let chart = root.$.chartist.makeChart();
+          'series': raw.slice(1, raw.length),
+        });
       },
-
+      /**
+       * Update the chart object when we get new data.
+       */
+      _dataUpdated: function(newValue, oldValue) {
+        // hard reset value to ensure they are updated in the event
+        // this is presenting them on the screen some how.
+        this.set('options', {});
+        this.set('options', this._getOptions());
+        let chart = this.$.chartist.makeChart();
+      },
       /**
        * wire it for hax-body
        */
@@ -605,7 +622,6 @@ A LRN element
             ]
           }
         };
-        
         this.setHaxProperties(props);
       },
       /**
@@ -634,7 +650,7 @@ A LRN element
           'axisX': {
             'offset': this.axisXOffset,
             'position': this.axisXTopLeft == true ? 'start' : 'end',
-            'labelOffset': { 
+            'labelOffset': {
               'x': this.axisXLabelOffsetX,
               'y': this.axisXLabelOffsetY,
             },
@@ -645,7 +661,7 @@ A LRN element
           'axisY': {
             'offset': this.axisYOffset,
             'position': this.axisYTopLeft == true ? 'start' : 'end',
-            'labelOffset': { 
+            'labelOffset': {
               'x': this.axisYLabelOffsetX,
               'y': this.axisYLabelOffsetY,
             },
@@ -654,7 +670,7 @@ A LRN element
             'onlyInteger': this.axisYOnlyInteger,
           },
         };
-      }, 
+      },
 
       /**
        * Mix of solutions from https://stackoverflow.com/questions/8493195/how-can-i-parse-a-csv-string-with-javascript-which-contains-comma-in-data
